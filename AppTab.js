@@ -10,8 +10,8 @@ export default function TabScreen() {
   return (
     // <NavigationContainer independent='true'>
       <Tab.Navigator>
-        <Tab.Screen name="Page1" component={Page1} />
-        <Tab.Screen name="Page2" component={Page2} />
+        <Tab.Screen name="Page One" component={Page1} />
+        <Tab.Screen name="Page Two" component={Page2} />
       </Tab.Navigator>
     // </NavigationContainer>
   )
