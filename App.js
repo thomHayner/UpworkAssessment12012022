@@ -19,7 +19,7 @@ export default function App() {
             <Stack.Screen
               name='TabScreen'
               component={TabScreen}
-              options={{ title: 'TabScreen' }}
+              options={{ title: 'Tab Screen' }}
             />
           </Stack.Navigator>
     </NavigationContainer>
