@@ -6,7 +6,7 @@ export default function Page2() {
     <SafeAreaView style={styles.container}>
       <StatusBar />
       <View style={styles.container}>
-        <Text>Page 2</Text>
+        <Text>Page Two</Text>
       </View>
     </SafeAreaView>
   )
