@@ -1,14 +1,15 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, StyleSheet, Text, View, FlatList, TextInput, Button } from 'react-native';
-import { DATA } from './DUMMYDATA';
 
 export default function OrderBook({ navigation }) {
+  // STATE VARIABLE
   const [symbol, setSymbol] = React.useState("btcusd");
   const [subscriptionSymbol, setSubscriptionSymbol] = React.useState("btcusd")
-  const [priceData, setPriceData] = React.useState(DATA.PriceData);
-  const [bookData, setBookData] = React.useState(DATA.BookData);
+  const [priceData, setPriceData] = React.useState('');
+  const [bookData, setBookData] = React.useState('');
 
+  // WEBSOCKET
   let ws = React.useRef(new WebSocket(`wss://stream.binance.us:9443/ws`)).current;
   
   React.useEffect(() => {
@@ -37,6 +38,15 @@ export default function OrderBook({ navigation }) {
       console.log(e)
     };
   });
+  
+    // CLICK HANDLER TO CHANGE SYMBOL USED BY WEBSOCKET
+    const onSymbolButtonClick = () => {
+      ws.send(`{"method": "UNSUBSCRIBE","params":["${subscriptionSymbol.toLowerCase()}@ticker", "${subscriptionSymbol.toLowerCase()}@depth20"],"id": 1}`);
+      console.log('UNSUBSCRIBE MESSAGE SENT');
+      ws.send(`{"method": "SUBSCRIBE","params":["${symbol.toLowerCase()}@ticker", "${symbol.toLowerCase()}@depth20"],"id": 1}`);
+      console.log('NEW SUBSCRIBE MESSAGE SENT');
+      setSubscriptionSymbol(symbol.toLowerCase());
+    };
 
   // TOTALS UP THE BIDS AND ASKS TO DETERMINE THE % OF VOLUME PER EACH PRICE LEVEL
   let bidsTotaler = () => {
@@ -59,20 +69,13 @@ export default function OrderBook({ navigation }) {
   };
   let AsksTotal = asksTotaler();
 
-  // CLICK HANDLER TO CHANGE SYMBOL
-  const onSymbolButtonClick = () => {
-    ws.send(`{"method": "UNSUBSCRIBE","params":["${subscriptionSymbol.toLowerCase()}@ticker", "${subscriptionSymbol.toLowerCase()}@depth20"],"id": 1}`)
-    ws.send(`{"method": "SUBSCRIBE","params":["${symbol.toLowerCase()}@ticker", "${symbol.toLowerCase()}@depth20"],"id": 1}`);
-    setSubscriptionSymbol(symbol.toLowerCase());
-  };
-
   // RETURN STATEMENT TO DISPLAY UI
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar />
       <View style={styles.outerContainer}>
         <View style={styles.titleInputArea}>
-          <Text style={styles.title}>Enter Symbol Name</Text>
+          <Text style={styles.title}>Enter Symbol Name: try 'btcusd', 'ethusd', 'bnbusd', etc...</Text>
           <View style={{ flexDirection: 'row '}}>
             <TextInput
               style={styles.input}
@@ -80,81 +83,84 @@ export default function OrderBook({ navigation }) {
               value={symbol}
             />
             <Button
-              title='View Order Book'
+              style={styles.symbolButton}
+              title='Update Symbol'
               onPress={onSymbolButtonClick}
             />
           </View>
         </View>
         
-        <View style={styles.orderBookArea}>
+        {(priceData.c && bookData.asks && bookData.bids) ? 
+              <View style={styles.orderBookArea}>
+                <View style={styles.columnHeadersArea}>
+                  <View style={styles.tableCellStart}>
+                    <Text>Price</Text>
+                  </View>
+                  <View style={styles.headerCellEnd}>
+                    <Text>Amount</Text>
+                  </View>
+                  <View style={styles.headerCellEnd}>
+                    <Text>Total</Text>
+                  </View>
+                </View>
 
-          <View style={styles.columnHeadersArea}>
-            <View style={styles.tableCellStart}>
-              <Text>Price</Text>
-            </View>
-            <View style={styles.headerCellEnd}>
-              <Text>Amount</Text>
-            </View>
-            <View style={styles.headerCellEnd}>
-              <Text>Total</Text>
-            </View>
-          </View>
+                <View style={styles.asksBidsAreas}>
+                  <FlatList
+                    key={item => item.toString()}
+                    data={bookData.asks} 
+                    renderItem={({ item }) => {
+                      let percentOfTotalAmount = () => ((Number(item[1])/AsksTotal) * 100);
+                      let itemPercentage = percentOfTotalAmount() + '%';
+                      let itemLeftValue = (100 - percentOfTotalAmount())  + '%';
+                      return (
+                          <View style={styles.tableRow}>
+                            <View style={[StyleSheet.absoluteFillObject], {backgroundColor: 'rgba(255,0,0,0.2)', width: itemPercentage, flexDirection: 'row', direction: 'rtl', left: itemLeftValue}}>
+                              <View style={styles.tableCellStart}>
+                                <Text>{ Math.round(Number(item[0]) * Number(item[1])).toFixed(5) }</Text>
+                              </View>
+                              <View style={styles.tableCellStart}>
+                                <Text>{ Number(item[1]).toFixed(5) }</Text>
+                              </View>
+                              <View style={styles.tableCellEnd}>
+                                <Text style={styles.tableAskPrice}>{ Number(item[0]).toFixed(5) }</Text>
+                              </View>
+                            </View>
+                          </View>
+                      )}}
+                  />
+                </View>
 
-          <View style={styles.asksBidsAreas}>
-            <FlatList
-              key={item => item.toString()}
-              data={bookData.asks} 
-              renderItem={({ item }) => {
-                let percentOfTotalAmount = () => ((Number(item[1])/AsksTotal) * 100);
-                let itemPercentage = percentOfTotalAmount() + '%';
-                let itemLeftValue = (100 - percentOfTotalAmount())  + '%';
-                return (
-                    <View style={styles.tableRow}>
-                      <View style={[StyleSheet.absoluteFillObject], {backgroundColor: 'rgba(255,0,0,0.2)', width: itemPercentage, flexDirection: 'row', direction: 'rtl', left: itemLeftValue}}>
-                        <View style={styles.tableCellStart}>
-                          <Text>{ Math.round(Number(item[0]) * Number(item[1])).toFixed(5) }</Text>
-                        </View>
-                        <View style={styles.tableCellStart}>
-                          <Text>{ Number(item[1]).toFixed(5) }</Text>
-                        </View>
-                        <View style={styles.tableCellEnd}>
-                          <Text style={styles.tableAskPrice}>{ Number(item[0]).toFixed(5) }</Text>
-                        </View>
-                      </View>
-                    </View>
-                )}}
-            />
-          </View>
+                <Text style={styles.lastPriceArea}>{priceData.c}</Text>
+                
+                <View style={styles.asksBidsAreas}>
+                  <FlatList
+                    key={item => item[0] * Math.random()}
+                    data={bookData.bids}
+                    renderItem={({ item }) => {
+                      let percentOfTotalAmount = () => ((Number(item[1])/BidsTotal) * 100);
+                      let itemPercentage = percentOfTotalAmount() + '%';
+                      let itemLeftValue = (100 - percentOfTotalAmount())  + '%';
 
-          <Text style={styles.lastPriceArea}>{priceData.c}</Text>
-          
-          <View style={styles.asksBidsAreas}>
-            <FlatList
-              key={item => item[0] * Math.random()}
-              data={bookData.bids}
-              renderItem={({ item }) => {
-                let percentOfTotalAmount = () => ((Number(item[1])/BidsTotal) * 100);
-                let itemPercentage = percentOfTotalAmount() + '%';
-                let itemLeftValue = (100 - percentOfTotalAmount())  + '%';
-
-                return (
-                    <View style={styles.tableRow}>
-                      <View style={[StyleSheet.absoluteFillObject], {backgroundColor: 'rgba(0,128,0,0.2)', width: itemPercentage, flexDirection: 'row', direction: 'rtl', left: itemLeftValue}}>
-                        <View style={styles.tableCellStart}>
-                          <Text>{ Math.round(Number(item[0]) * Number(item[1])).toFixed(5) }</Text>
-                        </View>
-                        <View style={styles.tableCellStart}>
-                          <Text>{ Number(item[1]).toFixed(5) }</Text>
-                        </View>
-                        <View style={styles.tableCellEnd}>
-                          <Text style={styles.tableBidPrice}>{ Number(item[0]).toFixed(5) }</Text>
-                        </View>
-                      </View>
-                    </View>
-                )}}
-            />
-          </View>
-        </View>
+                      return (
+                          <View style={styles.tableRow}>
+                            <View style={[StyleSheet.absoluteFillObject], {backgroundColor: 'rgba(0,128,0,0.2)', width: itemPercentage, flexDirection: 'row', direction: 'rtl', left: itemLeftValue}}>
+                              <View style={styles.tableCellStart}>
+                                <Text>{ Math.round(Number(item[0]) * Number(item[1])).toFixed(5) }</Text>
+                              </View>
+                              <View style={styles.tableCellStart}>
+                                <Text>{ Number(item[1]).toFixed(5) }</Text>
+                              </View>
+                              <View style={styles.tableCellEnd}>
+                                <Text style={styles.tableBidPrice}>{ Number(item[0]).toFixed(5) }</Text>
+                              </View>
+                            </View>
+                          </View>
+                      )}}
+                  />
+                </View>
+              </View>
+          : <View />
+        }
       <Button
         title='Go to Tab'
         onPress={() => navigation.navigate('TabScreen')}
@@ -178,11 +184,19 @@ const styles = StyleSheet.create({
   titleInputArea: {
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    width: 300,
+    // fontSize: 32,
+    // fontWeight: 'bold',
   },
   input: {
-    height: 30,
+    width: 150,
+    height: 35,
+    borderWidth: 1,
+    padding: 10,
+  },
+  symbolButton: {
+    width: 150,
+    height: 35,
     borderWidth: 1,
     padding: 10,
   },
